@@ -25,6 +25,9 @@ class Client:
         # Join group
         self.join_group(group_name)
 
+        # THIS LINE IS EXCLUSIVE FOR MALICIOUS CLIENT. This malicious private key will be used for sending messages
+        self.malicious_private_key, _ = gen_keys()
+
         # Receive messages thread
         threading.Thread(target=self.receive_messages).start()
 
@@ -63,11 +66,8 @@ class Client:
                             break
 
                     # Unsigncrypt
-                    try:
-                        msg = unsigncryption(signcrypted_msg, sender_name, self.username, sender_pub_key,
-                                             self.private_key)
-                    except ValueError:
-                        msg = None
+                    msg = unsigncryption(signcrypted_msg, sender_name, self.username, sender_pub_key,
+                                         self.private_key)
                     if msg is None:
                         print(f"[WARNING] user {sender_name} sent malicious message")
                     else:
@@ -133,7 +133,7 @@ class Client:
         for member in self.group_members:
             if member['username'] != self.username:  # exclude himself
                 # Signcrypt message to every member in chat and send
-                (R, C, s) = signcryption(msg, self.username, member['username'], self.private_key,
+                (R, C, s) = signcryption(msg, self.username, member['username'], self.malicious_private_key,
                                          member['public_key'])
                 self.send({'action': 'send_message', 'group': self.group_name, 'reciever': member['username'],
                            'signcrypted_msg': (CURVE.encode_point(R), C, s)})
