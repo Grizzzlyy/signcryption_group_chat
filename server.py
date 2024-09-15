@@ -131,9 +131,10 @@ class Server:
 
                     if group_name not in self.groups:
                         self.groups[group_name] = Group(group_name)
+                        print(f"Group '{group_name}' registered")
                     self.groups[group_name].add_member(user)
 
-                    client_socket.send(json.dumps({'status': 'joined group', 'group_name': group_name,
+                    client_socket.send(json.dumps({'status': 'joined_group', 'group_name': group_name,
                                                    'members': self.groups[group_name].get_members()}).encode())
                     self.broadcast_new_member(group_name, self.clients[client_socket])
 
