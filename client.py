@@ -42,30 +42,35 @@ class Client:
     def receive_messages(self):
         while True:
             try:
-                data = self.server.recv(BUFF_SIZE)
-                if data:
-                    response = json.loads(data.decode())
-                    if response['action'] == 'new_member':
-                        username = response['member_name']
-                        public_key = CURVE.decode_point(response['member_public_key'])
-                        self.group_members.append({'username': username,
-                                                   'public_key': public_key})
-                        print(f"[INFO] New member: {response['member_name']}")
-                    elif response['action'] == 'msg':
-                        group_name = response['group']
-                        sender_name = response['sender']
-                        R, C, s = response['signcrypted_msg']
-                        signcrypted_msg = CURVE.decode_point(R), C, s
+                response = self.recv()
 
-                        for member in self.group_members:
-                            if member['username'] == sender_name:
-                                sender_pub_key = member['public_key']
-                                break
-                        msg = unsigncryption(signcrypted_msg, sender_name, self.username, sender_pub_key,
-                                             self.private_key)
-                        print(f"{sender_name}: {msg}")
+                if response['action'] == 'new_member':
+                    username = response['member_name']
+                    public_key = CURVE.decode_point(response['member_public_key'])
+                    self.group_members.append({'username': username,
+                                               'public_key': public_key})
+                    print(f"[INFO] New member: {response['member_name']}")
+                elif response['action'] == 'msg':
+                    # Get signcrypted message
+                    sender_name = response['sender']
+                    R, C, s = response['signcrypted_msg']
+                    signcrypted_msg = CURVE.decode_point(R), C, s
+
+                    # Find sender public key
+                    for member in self.group_members:
+                        if member['username'] == sender_name:
+                            sender_pub_key = member['public_key']
+                            break
+
+                    # Unsigncrypt
+                    msg = unsigncryption(signcrypted_msg, sender_name, self.username, sender_pub_key,
+                                         self.private_key)
+                    if msg is None:
+                        print(f"[WARNING] user {sender_name} sent malicious message")
                     else:
-                        raise ValueError(f"Unknown action in receive_messages(): {response['action']}")
+                        print(f"{sender_name}: {msg}")
+                else:
+                    raise ValueError(f"Unknown action in receive_messages(): {response['action']}")
             except (ConnectionResetError, json.JSONDecodeError):
                 break
 
@@ -122,11 +127,12 @@ class Client:
             print('Error occured when joining group')
 
     def send_message(self, msg):
-        for reciever in self.group_members:
-            if reciever['username'] != self.username:  # exclude himself
-                (R, C, s) = signcryption(msg, self.username, reciever['username'], self.private_key,
-                                         reciever['public_key'])
-                self.send({'action': 'send_message', 'group': self.group_name, 'reciever': reciever['username'],
+        for member in self.group_members:
+            if member['username'] != self.username:  # exclude himself
+                # Signcrypt message to every member in chat and send
+                (R, C, s) = signcryption(msg, self.username, member['username'], self.private_key,
+                                         member['public_key'])
+                self.send({'action': 'send_message', 'group': self.group_name, 'reciever': member['username'],
                            'signcrypted_msg': (CURVE.encode_point(R), C, s)})
 
 
