@@ -36,12 +36,21 @@ class Client:
                 if data:
                     response = json.loads(data.decode())
                     if response['action'] == 'new_member':
-                        pass
+                        self.group_members.append({'username': response['member_name'], 'public_key': CURVE.decode_point(response['member_public_key'])})
                     elif response['action'] == 'msg':
-                        pass
+                        group_name = response['group']
+                        sender_name = response['sender']
+                        R, C, s = response['signcrypted_msg']
+                        signcrypted_msg = CURVE.decode_point(R), C, s
+
+                        for member in self.group_members:
+                            if member['username'] == sender_name:
+                                sender_pub_key = member['public_key']
+                                break
+                        msg = unsigncryption(signcrypted_msg, sender_name, self.username, sender_pub_key, self.private_key)
+                        print(f"[{group_name}] {sender_name}: {msg}")
                     else:
                         print('Unknown action in receive_messages()')
-                    print(f"[{response['group']}] {response['sender']}: {response['message']}")
             except (ConnectionResetError, json.JSONDecodeError):
                 break
 
@@ -52,7 +61,7 @@ class Client:
         commitment_R = commitment_r * CURVE.generator
         data = {'action': 'register',
                 'username': self.username,
-                'public_key': CURVE.encode_point(self.public_key.W),
+                'public_key': CURVE.encode_point(self.public_key),
                 'commitment': CURVE.encode_point(commitment_R)}
         self.send(data)
 
@@ -60,7 +69,7 @@ class Client:
         if response['status'] == 'challenge':
             #  Send zkksp_response
             challenge = response['challenge']
-            zkksp_response = (commitment_r + challenge * self.private_key.d) % CURVE.order
+            zkksp_response = (commitment_r + challenge * self.private_key) % CURVE.order
             data = {'action': 'prove',
                     'zkksp_response': zkksp_response}
             self.send(data)
@@ -80,14 +89,17 @@ class Client:
         self.send({'action': 'join_group', 'username': self.username, 'group': group_name})
         response = json.loads(self.server.recv(1024).decode())
         if response['status'] == 'joined group':
-            self.group_members = response['members']
+            for member in response['members']:
+                self.group_members.append({"username": member['username'], "public_key": CURVE.decode_point(member["public_key"])})
             print(f"Successfully joined group '{group_name}'")
         else:
             print('Error occured when joining group')
 
     def send_message(self, group_name, msg):
-        signcrypted_msg = signcryption(msg, self.username, 'all', )
-        self.send({'action': 'send_message', 'group': group_name, 'message': signcrypted_msg})
+        for reciever in self.group_members:
+            if reciever['username'] != self.username: # exclude himself
+                (R, C, s) = signcryption(msg, self.username, reciever['username'], self.private_key, reciever['public_key'])
+                self.send({'action': 'send_message', 'group': group_name, 'reciever': reciever['username'], 'signcrypted_msg': (CURVE.encode_point(R), C, s)})
 
 
 if __name__ == "__main__":
@@ -104,5 +116,5 @@ if __name__ == "__main__":
 
     # Sending messages in a loop
     while True:
-        message = input(f"Message to {group_name}: ")
+        input()
         client.send_message(group_name, message)

@@ -1,22 +1,10 @@
 import socket
 import threading
 import random
-import string
 import json
 import argparse
+
 from constants import CURVE
-from enum import Enum
-
-
-# Placeholder for the signcryption scheme
-class SigncryptionScheme:
-    @staticmethod
-    def signcrypt(message, sender_private_key, recipient_public_key):
-        return f"ciphertext({message})"
-
-    @staticmethod
-    def unsigncrypt(ciphertext, recipient_private_key, sender_public_key):
-        return ciphertext.replace("ciphertext(", "").replace(")", "")
 
 
 # User class to store user information
@@ -39,7 +27,8 @@ class Group:
         self.members.remove(user)
 
     def get_members(self):
-        return [{'username': member.username, 'pub_key': CURVE.encode_point(member.public_key)} for member in self.members]
+        return [{'username': member.username, 'public_key': CURVE.encode_point(member.public_key)} for member in
+                self.members]
 
 
 # Server class to handle client connections and group chat logic
@@ -53,6 +42,7 @@ class Server:
         self.clients = {}  # Maps socket to user
         self.groups = {}  # Maps group name to Group object
 
+# TODO broadcast delete member
     def broadcast_new_member(self, group_name, new_member):
         group = self.groups[group_name]
         for member in group.members:
@@ -62,8 +52,22 @@ class Server:
                     'action': 'new_member',
                     'group': group_name,
                     'member_name': new_member.username,
-                    'member_public_key': new_member.public_key
+                    'member_public_key': CURVE.encode_point(new_member.public_key)
                 }).encode())
+
+    def send_msg(self, group_name, sender, reciever, signcrypted_msg):
+        for sock, user in self.clients.items():
+            if user.username == reciever:
+                recipient_socket = sock
+                break
+
+        recipient_socket.send(json.dumps({
+            'action': 'msg',
+            'sender': sender.username,
+            'group': group_name,
+            'signcrypted_msg': signcrypted_msg
+        }).encode())
+
 
     def broadcast_msg(self, group_name, sender, message):
         group = self.groups[group_name]
@@ -77,8 +81,6 @@ class Server:
                     'group': group_name,
                     'message': signcrypted_message
                 }).encode())
-
-
 
     def verify_client_key(self, client_socket, public_key, commitment):
         challenge = random.randint(1, CURVE.order - 1)
@@ -138,13 +140,21 @@ class Server:
                 elif action == 'send_message':
                     sender = self.clients[client_socket]
                     group_name = request['group']
-                    message = request['message']
-                    self.broadcast_msg(group_name, sender, message, 'msg')
+                    reciever = request['reciever']
+                    signcrypted_msg = request['signcrypted_msg']
+                    self.send_msg(group_name, sender, reciever, signcrypted_msg)
+                    # self.broadcast_msg(group_name, sender, message, 'msg')
 
             except (ConnectionResetError, json.JSONDecodeError):
                 break
 
         print(f"Client disconnected: {self.clients[client_socket].username}")
+        # Delete client from group
+        for i in self.groups:
+            gr = self.groups[i]
+            for j in range(len(gr.members)):
+                if gr.members[j].username == self.clients[client_socket].username:
+                    del gr.members[j]
         del self.clients[client_socket]
         client_socket.close()
 

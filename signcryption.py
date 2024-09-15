@@ -5,6 +5,7 @@ from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from typing import Tuple
 from Crypto.Util.Padding import pad, unpad
+from base64 import b64encode, b64decode
 import json
 
 from constants import CURVE
@@ -41,12 +42,15 @@ def signcryption(message: str, send_id: int, recv_id: int, send_priv_key: int,
         t = SHA256.new(t_input).digest()
         t = int.from_bytes(t, 'big')
         s = (t * send_priv_key - r) % CURVE.order
+
+        C = b64encode(C).decode("utf-8")
         return R, C, s
 
 
-def unsigncryption(recv_data: Tuple[Point, bytes, int], send_id: int, recv_id: int,
+def unsigncryption(recv_data: Tuple[Point, str, int], send_id: int, recv_id: int,
                    send_pub_key: Point, recv_priv_key: int):
     R, C, s = recv_data
+    C = b64decode(C.encode("utf-8"))
 
     # 2
     f = floor(log2(CURVE.order)) + 1
