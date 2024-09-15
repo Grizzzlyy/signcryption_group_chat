@@ -4,7 +4,7 @@ import random
 import json
 import argparse
 
-from constants import CURVE
+from constants import CURVE, BUFF_SIZE
 
 
 # User class to store user information
@@ -89,7 +89,7 @@ class Server:
             'challenge': challenge,
         }).encode())
 
-        data = client_socket.recv(1024)
+        data = client_socket.recv(BUFF_SIZE)
         request = json.loads(data.decode())
         zkksp_response = request['zkksp_response']
 
@@ -101,7 +101,7 @@ class Server:
     def handle_client(self, client_socket):
         while True:
             try:
-                data = client_socket.recv(1024)
+                data = client_socket.recv(BUFF_SIZE)
                 if not data:
                     break
 

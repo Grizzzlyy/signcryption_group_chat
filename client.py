@@ -3,8 +3,9 @@ import random
 import socket
 import threading
 import json
+
 from signcryption import gen_keys, signcryption, unsigncryption
-from constants import CURVE
+from constants import CURVE, BUFF_SIZE
 
 
 class Client:
@@ -24,7 +25,8 @@ class Client:
         self.join_group(group_name)
 
         # Receive messages thread
-        threading.Thread(target=self.receive_messages).start()
+        self.receive_msg_thread = threading.Thread(target=self.receive_messages)
+        self.receive_msg_thread.start()
 
     def send(self, data):
         self.server.send(json.dumps(data).encode())
@@ -32,7 +34,7 @@ class Client:
     def receive_messages(self):
         while True:
             try:
-                data = self.server.recv(1024)
+                data = self.server.recv(BUFF_SIZE)
                 if data:
                     response = json.loads(data.decode())
                     if response['action'] == 'new_member':
@@ -65,7 +67,7 @@ class Client:
                 'commitment': CURVE.encode_point(commitment_R)}
         self.send(data)
 
-        response = json.loads(self.server.recv(1024).decode())
+        response = json.loads(self.server.recv(BUFF_SIZE).decode())
         if response['status'] == 'challenge':
             #  Send zkksp_response
             challenge = response['challenge']
@@ -74,7 +76,7 @@ class Client:
                     'zkksp_response': zkksp_response}
             self.send(data)
 
-            response = json.loads(self.server.recv(1024).decode())
+            response = json.loads(self.server.recv(BUFF_SIZE).decode())
             if response['status'] == 'registered':
                 print(f"Registered as {self.username}, Public Key: {self.public_key}")
             else:
@@ -87,7 +89,7 @@ class Client:
     def join_group(self, group_name):
 
         self.send({'action': 'join_group', 'username': self.username, 'group': group_name})
-        response = json.loads(self.server.recv(1024).decode())
+        response = json.loads(self.server.recv(BUFF_SIZE).decode())
         if response['status'] == 'joined group':
             for member in response['members']:
                 self.group_members.append({"username": member['username'], "public_key": CURVE.decode_point(member["public_key"])})
@@ -116,5 +118,8 @@ if __name__ == "__main__":
 
     # Sending messages in a loop
     while True:
-        input()
-        client.send_message(group_name, message)
+        try:
+            message = input()
+            client.send_message(group_name, message)
+        except KeyboardInterrupt:
+            client.receive_msg_thread.join()
