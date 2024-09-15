@@ -42,18 +42,24 @@ class Server:
         self.clients = {}  # Maps socket to user
         self.groups = {}  # Maps group name to Group object
 
-# TODO broadcast delete member
+    def encode_data(self, data):
+        return json.dumps(data).encode()
+
+    def decode_data(self, data):
+        return json.loads(data.decode())
+
     def broadcast_new_member(self, group_name, new_member):
         group = self.groups[group_name]
         for member in group.members:
             if member.username != new_member.username:  # Skip sender
                 recipient_socket = next(sock for sock, user in self.clients.items() if user.username == member.username)
-                recipient_socket.send(json.dumps({
+                data = self.encode_data({
                     'action': 'new_member',
                     'group': group_name,
                     'member_name': new_member.username,
                     'member_public_key': CURVE.encode_point(new_member.public_key)
-                }).encode())
+                })
+                recipient_socket.send(data)
 
     def send_msg(self, group_name, sender, reciever, signcrypted_msg):
         for sock, user in self.clients.items():
@@ -61,36 +67,25 @@ class Server:
                 recipient_socket = sock
                 break
 
-        recipient_socket.send(json.dumps({
+        data = self.encode_data({
             'action': 'msg',
             'sender': sender.username,
             'group': group_name,
             'signcrypted_msg': signcrypted_msg
-        }).encode())
+        })
+        recipient_socket.send(data)
 
-
-    def broadcast_msg(self, group_name, sender, message):
-        group = self.groups[group_name]
-        for member in group.members:
-            if member.username != sender.username:  # Skip sender
-                recipient_socket = next(sock for sock, user in self.clients.items() if user.username == member.username)
-                signcrypted_message = SigncryptionScheme.signcrypt(message, sender.private_key, member.public_key)
-                recipient_socket.send(json.dumps({
-                    'action': 'msg',
-                    'sender': sender.username,
-                    'group': group_name,
-                    'message': signcrypted_message
-                }).encode())
-
+    # Zero-Knowledge Key-Statement Proof
     def verify_client_key(self, client_socket, public_key, commitment):
         challenge = random.randint(1, CURVE.order - 1)
-        client_socket.send(json.dumps({
+        data = self.encode_data({
             'status': 'challenge',
             'challenge': challenge,
-        }).encode())
+        })
+        client_socket.send(data)
 
         data = client_socket.recv(BUFF_SIZE)
-        request = json.loads(data.decode())
+        request = self.decode_data(data)
         zkksp_response = request['zkksp_response']
 
         if zkksp_response * CURVE.generator == commitment + challenge * public_key:
@@ -105,7 +100,7 @@ class Server:
                 if not data:
                     break
 
-                request = json.loads(data.decode())
+                request = self.decode_data(data)
                 action = request['action']
 
                 if action == 'register':
@@ -117,15 +112,14 @@ class Server:
                         user = User(username, public_key)
                         self.clients[client_socket] = user
                         print(f"User {username} registered.")
-                        client_socket.send(json.dumps({'status': 'registered'}).encode())
+                        client_socket.send(self.encode_data({'status': 'registered'}))
                     else:
-                        print(f"User {username} couldn't prove his public key")
+                        print(f"User {username} couldn't prove his public key.")
                         client_socket.send(
                             json.dumps({'status': 'denied', 'reason': "Public key is not proved."}).encode())
                         break
 
                 elif action == 'join_group':
-                    username = request['username']
                     group_name = request['group']
                     user = self.clients[client_socket]
 
@@ -134,8 +128,13 @@ class Server:
                         print(f"Group '{group_name}' registered")
                     self.groups[group_name].add_member(user)
 
-                    client_socket.send(json.dumps({'status': 'joined_group', 'group_name': group_name,
-                                                   'members': self.groups[group_name].get_members()}).encode())
+                    # Send success status to client and share members of group
+                    data = self.encode_data({'status': 'joined_group',
+                                             'group_name': group_name,
+                                             'members': self.groups[group_name].get_members()})
+                    client_socket.send(data)
+
+                    # Broadcast message about new member to group members
                     self.broadcast_new_member(group_name, self.clients[client_socket])
 
                 elif action == 'send_message':
@@ -144,7 +143,6 @@ class Server:
                     reciever = request['reciever']
                     signcrypted_msg = request['signcrypted_msg']
                     self.send_msg(group_name, sender, reciever, signcrypted_msg)
-                    # self.broadcast_msg(group_name, sender, message, 'msg')
 
             except (ConnectionResetError, json.JSONDecodeError):
                 break
