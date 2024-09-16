@@ -1,5 +1,5 @@
 # Desciption
-Group chat client-server application on sockets with signcryption scheme from [[1]](#1).
+Group chat client-server application on sockets with signcryption scheme, proposed by Mohsen Toorani and Asghar Beheshti [[1]](#1).
 
 # Features
 - Schnorr protocol zero-knowledge key-statement proof (ZKKSP) [[2]](#2) for verifying private key possession to server.
@@ -31,10 +31,10 @@ python client.py 127.0.0.1 9001 Daniel gr2
 This will create server and two groups, 'gr1': Alice, Bob, Attacker, 'gr2': Clark, Daniel. When malicious client tries to send message, every member of group will recieve warnings.
 
 # Files
-`server.py` - server application
-`client.py` - client application
-`malicious_client.py` - malicious client used for warning demo, using fake private key
-`signcryption.py` - signcryption scheme (generate keys, signcrypt, unsigncrypt)
+`server.py` - server application\
+`client.py` - client application\
+`malicious_client.py` - malicious client used for warning demo, using fake private key\
+`signcryption.py` - signcryption scheme (generate keys, signcrypt, unsigncrypt)\
 `constants.py` - signcryption curve, input vector for AES-256, buffer size for server and clients
 
 
