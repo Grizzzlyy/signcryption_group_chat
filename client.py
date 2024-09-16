@@ -69,7 +69,7 @@ class Client:
                     except ValueError:
                         msg = None
                     if msg is None:
-                        print(f"[WARNING] user {sender_name} sent malicious message")
+                        print(f"[WARNING] user '{sender_name}' sent malicious message")
                     else:
                         print(f"{sender_name}: {msg}")
                 else:
