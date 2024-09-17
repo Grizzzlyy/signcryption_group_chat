@@ -29,12 +29,12 @@ python client.py 127.0.0.1 9001 Daniel gr2 data/daniel_key.json
 This will create server and two groups, 'gr1': Alice, Bob, 'gr2': Clark, Daniel.
 
 # Files
-`src\`
-  `server.py` - server application\
-  `server_structs.py` - server routine (database handler, sessions handler)
-  `client.py` - client application\
-  `signcryption.py` - signcryption scheme (generate keys, signcrypt, unsigncrypt)\
-  `constants.py` - signcryption curve, input vector for AES-256, buffer size for server and clients
+`src\`\
+--`server.py` - server application\
+--`server_structs.py` - server routine (database handler, sessions handler)
+--`client.py` - client application\
+--`signcryption.py` - signcryption scheme (generate keys, signcrypt, unsigncrypt)\
+--`constants.py` - signcryption curve, input vector for AES-256, buffer size for server and clients
 
 
 # Screenshots
