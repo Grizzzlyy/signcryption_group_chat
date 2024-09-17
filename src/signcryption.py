@@ -1,7 +1,7 @@
 """
 Implemenatation of signcryption scheme, proposed in https://arxiv.org/abs/1002.3316
 """
-from ecpy.curves import Curve, Point
+from ecpy.curves import Curve, Point, TwistedEdwardCurve
 import random
 from math import floor, ceil, log2, sqrt
 from Crypto.Cipher import AES
@@ -13,31 +13,36 @@ from sympy import isprime
 
 from constants import CURVE, IV
 
+# Returns None if curve is suitable, otherwise reason why it's not suitable
+def check_curve(curve):
+    if type(curve) == TwistedEdwardCurve:
+        return "TwistedEdwardCurve"
 
-def check_curve():
-    q = CURVE.field
-    n = CURVE.order
-    a, b = CURVE.a, CURVE.b
+    q = curve.field
+    n = curve.order
+    a, b = curve.a, curve.b
 
     if not isprime(q):
-        return False
+        return "'q' is not prime"
 
     # Check non singular
     if 4 * (a ** 3) + 27 * (b ** 2) % q == 0:
-        return False
+        return "singular curve"
+
     # Guard against small subgroup attacks
     if n <= 4 * sqrt(q):
-        return False
+        return "small subgroup attacks"
+
     # Protect against other known attacks on special classes of elliptic curves
     for i in range(1, 21):
         if q ** i - 1 % n == 0:
-            return False
+            return "small subgroup attacks"
 
     # Intractability of ECDLP
     if n <= 2 ** 160:
-        return False
+        return "ECDLP is tractable"
 
-    return True
+    return None
 
 
 def gen_keys() -> (int, Point):
@@ -102,11 +107,17 @@ def unsigncryption(signcrypted_data: Tuple[Point, str, int], send_id: str, recv_
 
 
 def main():
-    if check_curve():
-        print(f"Curve {CURVE.name} suitable for signcryption.")
-    else:
-        print(f"Curve {CURVE.name} NOT suitable for signcryption.")
+    # Test curves
+    print("Checking if curves suitable for signcryption...")
+    for curve_name in CURVE.get_curve_names():
+        curve = Curve.get_curve(curve_name)
+        res = check_curve(curve)
+        if res:
+            print(f"{curve.name}: BAD ({res})")
+        else:
+            print(f"{curve.name}: OKAY")
 
+    # Test signcryption
     ID_A, ID_B = 'Alice', 'Bob'
     priv_A, pub_A = gen_keys()
     priv_B, pub_B = gen_keys()
@@ -114,9 +125,9 @@ def main():
     signcrypted_msg = signcryption(orig_message, ID_A, ID_B, priv_A, pub_B)
     message = unsigncryption(signcrypted_msg, ID_A, ID_B, pub_A, priv_B)
     if message == orig_message:
-        print("Module 'signcryption' works fine.")
+        print("\nModule 'signcryption' works fine.")
     else:
-        print("Module 'signcryption' ERROR.")
+        print("\nModule 'signcryption' ERROR.")
 
 
 if __name__ == "__main__":
