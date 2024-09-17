@@ -99,7 +99,7 @@ class ServerDatabase:
         try:
             group = self.groups[group_name]
             return group.is_member(username)
-        except KeyError: # no such group
+        except KeyError:  # no such group
             return False
 
     def get_public_key(self, username):

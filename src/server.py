@@ -96,7 +96,8 @@ class Server:
                     else:
                         print(f"[INFO] User '{username}' connected to group '{group_name}'.")
 
-                    if self.active_sessions.get_socket(username, group_name) is not None: # There is active session with user already
+                    if self.active_sessions.get_socket(username,
+                                                       group_name) is not None:  # There is active session with user already
                         data = self.encode_data({'status': 'denied',
                                                  'reason': f"You already have active session."})
                         client_socket.send(data)
