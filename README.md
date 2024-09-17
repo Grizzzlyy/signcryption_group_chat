@@ -39,14 +39,13 @@ This will create server and two groups, 'gr1': Alice, Bob, 'gr2': Clark, Daniel.
 
 # Screenshots
 Server:\
-![image](https://github.com/user-attachments/assets/e01fc054-2281-4240-b899-9594b11e9331)
+![image](https://github.com/user-attachments/assets/280c756a-f22f-485d-95a6-77915a6573a7)
 
 Alice:\
-![image](https://github.com/user-attachments/assets/c5474460-8afe-4097-be39-22c2867d9416)
+![image](https://github.com/user-attachments/assets/e7225f8e-e68b-4f6a-b1aa-c64bc42a970e)
 
 Bob:\
-![image](https://github.com/user-attachments/assets/1f36b777-b579-4254-917f-3f85a2469104)
-
+![image](https://github.com/user-attachments/assets/2f3ce60b-d234-49ad-81e1-1b382f2c03ab)
 
 
 
