@@ -5,7 +5,6 @@ Group chat client-server application on sockets with signcryption scheme, propos
 - Schnorr protocol zero-knowledge key-statement proof (ZKKSP) [[2]](#2) for verifying private key possession to server.
 - Server can host several groups
 - Every messege is signcrypted
-- Malicious client, that sends message, using fake private key. All users in group get warning that there is corrupted message from user \<username\>.
 
 # Usage
 Install required packages in venv:
@@ -15,27 +14,27 @@ pip install -r requirements.txt
 
 Run options:
 ```
-server.py [-h] host port
-client.py [-h] host port username groupname
+server.py [-h] host port db_path
+client.py [-h] host port username groupname keys_path
 ```
 
 Example:
 ``` python
-python server.py 127.0.0.1 9001
-python client.py 127.0.0.1 9001 Alice gr1
-python client.py 127.0.0.1 9001 Bob gr1
-python malicious_client.py 127.0.0.1 9001 Attacker gr1
-python client.py 127.0.0.1 9001 Clark gr2
-python client.py 127.0.0.1 9001 Daniel gr2
+python server.py 127.0.0.1 9001 data/server_db.json
+python client.py 127.0.0.1 9001 Alice gr1 data/alice_key.json
+python client.py 127.0.0.1 9001 Bob gr1 data/bob_key.json
+python client.py 127.0.0.1 9001 Clark gr2 data/clark_key.json
+python client.py 127.0.0.1 9001 Daniel gr2 data/daniel_key.json
 ```
-This will create server and two groups, 'gr1': Alice, Bob, Attacker, 'gr2': Clark, Daniel. When malicious client tries to send message, every member of group will recieve warnings.
+This will create server and two groups, 'gr1': Alice, Bob, 'gr2': Clark, Daniel.
 
 # Files
-`server.py` - server application\
-`client.py` - client application\
-`malicious_client.py` - malicious client used for warning demo, using fake private key\
-`signcryption.py` - signcryption scheme (generate keys, signcrypt, unsigncrypt)\
-`constants.py` - signcryption curve, input vector for AES-256, buffer size for server and clients
+`src\`
+  `server.py` - server application\
+  `server_structs.py` - server routine (database handler, sessions handler)
+  `client.py` - client application\
+  `signcryption.py` - signcryption scheme (generate keys, signcrypt, unsigncrypt)\
+  `constants.py` - signcryption curve, input vector for AES-256, buffer size for server and clients
 
 
 # Screenshots
