@@ -17,12 +17,14 @@ class Server:
         print(f"[INFO] Server started on {host}:{port}")
 
         self.database = ServerDatabase(db_path)
-        self.active_sessions = Sessions()  # Maps socket to username
+        self.active_sessions = Sessions()
 
-    def encode_data(self, data):
+    @staticmethod
+    def encode_data(data):
         return json.dumps(data).encode()
 
-    def decode_data(self, data):
+    @staticmethod
+    def decode_data(data):
         return json.loads(data.decode())
 
     def send_msg(self, sender_socket, reciever_username, signcrypted_msg):
@@ -34,7 +36,8 @@ class Server:
 
         group_name = self.active_sessions.get_group_name(sender_socket)
         recipient_socket = self.active_sessions.get_socket(reciever_username, group_name)
-        recipient_socket.send(data)
+        if recipient_socket is not None:
+            recipient_socket.send(data)
 
     # Zero-Knowledge Key-Statement Proof
     def verify_client_key(self, client_socket, public_key, commitment):
@@ -75,9 +78,9 @@ class Server:
                     # Verify that user has private key (ZKKSP)
                     public_key = self.database.get_public_key(username)
                     if self.verify_client_key(client_socket, public_key, commitment):
-                        print(f"[INFO] User '{username}' authenticated.")
+                        print(f"[INFO] User {client_socket.getpeername()} authenticated as '{username}'.")
                     else:
-                        print(f"[WARNING] User '{username}' authentication FAIL.")
+                        print(f"[WARNING] User '{client_socket.getpeername()}' authentication as '{username}' FAIL.")
                         client_socket.send(
                             self.encode_data({'status': 'denied', 'reason': "Authentication fail."}))
                         break
@@ -87,10 +90,19 @@ class Server:
                         data = self.encode_data({'status': 'denied',
                                                  'reason': f"You have no access to group '{group_name}'."})
                         client_socket.send(data)
-                        print(f"[WARNING] User '{username}' has no access to group '{group_name}'. Terminating connection.")
+                        print(
+                            f"[WARNING] User '{username}' has no access to group '{group_name}'. Terminating connection.")
                         break
+                    else:
+                        print(f"[INFO] User '{username}' connected to group '{group_name}'.")
 
-
+                    if self.active_sessions.get_socket(username, group_name) is not None: # There is active session with user already
+                        data = self.encode_data({'status': 'denied',
+                                                 'reason': f"You already have active session."})
+                        client_socket.send(data)
+                        print(
+                            f"[WARNING] User '{username}' tried to connect, but already have active session. Terminating.")
+                        break
 
                     # Save active session
                     self.active_sessions.add_session(client_socket, username, group_name)
@@ -121,7 +133,10 @@ class Server:
             except (ConnectionResetError, json.JSONDecodeError):
                 break
 
-        print(f"[INFO] Client disconnected: {self.active_sessions.get_username(client_socket)}")
+        # Client disconnected
+        print(f"[INFO] Client disconnected: {client_socket.getpeername()}")
+        if self.active_sessions.get_username(client_socket) is not None:  # Check if client was authenticated
+            self.broadcast_member_disconnect(client_socket)
         self.active_sessions.del_session(client_socket)
         client_socket.close()
 
@@ -137,6 +152,18 @@ class Server:
                 'action': 'new_member',
                 'member_name': new_username,
                 'member_public_key': new_public_key
+            })
+            sock.send(data)
+
+    def broadcast_member_disconnect(self, client_socket):
+        username = self.active_sessions.get_username(client_socket)
+
+        # Send message to other group members
+        members_sockets = self.active_sessions.get_other_group_sockets(client_socket)
+        for sock in members_sockets:
+            data = self.encode_data({
+                'action': 'member_leave',
+                'username': username
             })
             sock.send(data)
 

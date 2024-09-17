@@ -1,7 +1,8 @@
 """
-Implemenatation of signcryption scheme, proposed in https://arxiv.org/abs/1002.3316
+Implementation of signcryption scheme, proposed in https://arxiv.org/abs/1002.3316
 """
-from ecpy.curves import Curve, Point, TwistedEdwardCurve
+from typing import List
+from ecpy.curves import Curve, TwistedEdwardCurve
 import random
 from math import floor, ceil, log2, sqrt
 from Crypto.Cipher import AES
@@ -13,8 +14,9 @@ from sympy import isprime
 
 from constants import CURVE, IV
 
+
 # Returns None if curve is suitable, otherwise reason why it's not suitable
-def check_curve(curve):
+def check_curve(curve: Curve) -> str | None:
     if type(curve) == TwistedEdwardCurve:
         return "TwistedEdwardCurve"
 
@@ -45,14 +47,16 @@ def check_curve(curve):
     return None
 
 
-def gen_keys() -> (int, Point):
+def gen_keys() -> (int, List[int]):
     priv_key = random.randint(1, CURVE.order - 1)
-    pub_key = priv_key * CURVE.generator
+    pub_key = CURVE.encode_point(priv_key * CURVE.generator)
     return priv_key, pub_key
 
 
 def signcryption(message: str, send_id: str, recv_id: str, send_priv_key: int,
-                 recv_pub_key: Point) -> (Point, str, int):
+                 recv_pub_key: List[int]) -> (List[int], str, int):
+    recv_pub_key = CURVE.decode_point(recv_pub_key)
+
     while True:
         # 2
         r = random.randint(1, CURVE.order - 1)
@@ -76,13 +80,16 @@ def signcryption(message: str, send_id: str, recv_id: str, send_priv_key: int,
         t = int.from_bytes(t, 'big')
         s = (t * send_priv_key - r) % CURVE.order
 
+        R = CURVE.encode_point(R)
         C = b64encode(C).decode("utf-8")
         return R, C, s
 
 
-def unsigncryption(signcrypted_data: Tuple[Point, str, int], send_id: str, recv_id: str, send_pub_key: Point,
-                   recv_priv_key: int):
+def unsigncryption(signcrypted_data: Tuple[List[int], str, int], send_id: str, recv_id: str, send_pub_key: List[int],
+                   recv_priv_key: int) -> str | None:
     R, C, s = signcrypted_data
+    send_pub_key = CURVE.decode_point(send_pub_key)
+    R = CURVE.decode_point(R)
     C = b64decode(C.encode("utf-8"))
 
     # 2

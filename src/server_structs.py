@@ -34,10 +34,16 @@ class Sessions:
         self.sessions[socket] = Session(username, group_name)
 
     def del_session(self, socket):
-        del self.sessions[socket]
+        try:
+            del self.sessions[socket]
+        except KeyError:
+            pass
 
     def get_username(self, socket):
-        return self.sessions[socket].username
+        try:
+            return self.sessions[socket].username
+        except KeyError:
+            return None
 
     def get_group_name(self, socket):
         return self.sessions[socket].group_name
@@ -90,8 +96,11 @@ class ServerDatabase:
                 self.groups[group_name].add_member(self.users[username])
 
     def check_access_to_group(self, username, group_name):
-        group = self.groups[group_name]
-        return group.is_member(username)
+        try:
+            group = self.groups[group_name]
+            return group.is_member(username)
+        except KeyError: # no such group
+            return False
 
     def get_public_key(self, username):
         return self.users[username].public_key

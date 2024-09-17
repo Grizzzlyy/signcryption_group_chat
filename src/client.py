@@ -4,7 +4,7 @@ import socket
 import threading
 import json
 
-from signcryption import gen_keys, signcryption, unsigncryption
+from signcryption import signcryption, unsigncryption
 from constants import CURVE, BUFF_SIZE
 
 
@@ -19,7 +19,7 @@ class Client:
         with open(keys_path, 'r') as fp:
             keys = json.load(fp)
             self.private_key = keys["private"]
-            self.public_key = CURVE.decode_point(keys["public"])
+            self.public_key = keys["public"]
 
         # Connect to server
         self.server.connect((host, port))
@@ -65,11 +65,12 @@ class Client:
                     print(f'- {username}')
             elif response['status'] == 'denied':
                 print(f"[ERROR] Access to group '{self.group_name}' denied. Reason: {response['reason']}")
+                exit()
             else:
-                print(f"[ERROR] Unexpected responce from server.")
+                print(f"[ERROR] Unexpected response from server.")
                 exit()
         else:
-            print("Server didn't accept challenge")
+            print("[ERROR] Server didn't accept challenge")
             exit()
 
     def send(self, data):
@@ -94,7 +95,7 @@ class Client:
                     # Get signcrypted message
                     sender_name = response['sender']
                     R, C, s = response['signcrypted_msg']
-                    signcrypted_msg = CURVE.decode_point(R), C, s
+                    signcrypted_msg = R, C, s
 
                     # Find sender public key
                     sender_pub_key = self.group_members[sender_name]
@@ -102,7 +103,7 @@ class Client:
                     # Unsigncrypt
                     try:
                         msg = unsigncryption(signcrypted_msg, sender_name, self.username,
-                                             CURVE.decode_point(sender_pub_key),
+                                             sender_pub_key,
                                              self.private_key)
                     except ValueError:
                         msg = None
@@ -110,70 +111,21 @@ class Client:
                         print(f"[WARNING] user '{sender_name}' sent malicious message")
                     else:
                         print(f"{sender_name}: {msg}")
+                elif response['action'] == 'member_leave':
+                    del self.group_members[response['username']]
+                    print(f"[INFO] Member leave: {response['username']}")
                 else:
                     raise ValueError(f"Unknown action in receive_messages(): {response['action']}")
             except (ConnectionResetError, json.JSONDecodeError):
                 break
-
-    # Register user and verify private key possession (Zero-Knowledge Key-Statement Proof)
-    # def register(self):
-    #     # Send user info and commitment
-    #     commitment_r = random.randint(1, CURVE.order - 1)
-    #     commitment_R = commitment_r * CURVE.generator
-    #     data = {'action': 'register',
-    #             'username': self.username,
-    #             'public_key': CURVE.encode_point(self.public_key),
-    #             'commitment': CURVE.encode_point(commitment_R)}
-    #     self.send(data)
-    #
-    #     response = self.recv()
-    #     if response['status'] == 'challenge':
-    #         #  Send zkksp_response
-    #         challenge = response['challenge']
-    #         zkksp_response = (commitment_r + challenge * self.private_key) % CURVE.order
-    #         data = {'action': 'prove',
-    #                 'zkksp_response': zkksp_response}
-    #         self.send(data)
-    #
-    #         response = self.recv()
-    #         if response['status'] == 'registered':
-    #             print(f"Registered as {self.username}, Public Key: {self.public_key}")
-    #         else:
-    #             print(f"Not registered =(")
-    #             exit()
-    #     else:
-    #         print("Server didn't accept challenge")
-    #         exit()
-    #
-    # def join_group(self, group_name):
-    #     data = {'action': 'join_group',
-    #             'username': self.username,
-    #             'group': group_name}
-    #     self.send(data)
-    #
-    #     response = self.recv()
-    #     if response['status'] == 'joined_group':
-    #         # Save group members usernames and private keys to send them messages later
-    #         for member in response['members']:
-    #             self.group_members.append(
-    #                 {"username": member['username'],
-    #                  "public_key": CURVE.decode_point(member["public_key"])})
-    #
-    #         # Print info
-    #         print(f"Successfully joined group '{group_name}'")
-    #         print(f"Members in chat:")
-    #         for member in self.group_members:
-    #             print(f"- {member['username']}")
-    #     else:
-    #         print('Error occured when joining group')
 
     def send_message(self, msg):
         for username, public_key in self.group_members.items():
             if username != self.username:  # exclude himself
                 # Signcrypt message to every member in chat and send
                 (R, C, s) = signcryption(msg, self.username, username, self.private_key,
-                                         CURVE.decode_point(public_key))
-                signcrypted_msg = (CURVE.encode_point(R), C, s)
+                                         public_key)
+                signcrypted_msg = (R, C, s)
                 self.send({'action': 'send_message', 'group': self.group_name, 'reciever': username,
                            'signcrypted_msg': signcrypted_msg})
 
