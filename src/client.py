@@ -102,7 +102,7 @@ class Client:
 
                     # Unsigncrypt
                     try:
-                        msg = unsigncryption(signcrypted_msg, sender_name, self.username,
+                        msg = unsigncryption(CURVE, signcrypted_msg, sender_name, self.username,
                                              sender_pub_key,
                                              self.private_key)
                     except ValueError:
@@ -123,7 +123,7 @@ class Client:
         for username, public_key in self.group_members.items():
             if username != self.username:  # exclude himself
                 # Signcrypt message to every member in chat and send
-                (R, C, s) = signcryption(msg, self.username, username, self.private_key,
+                (R, C, s) = signcryption(CURVE, msg, self.username, username, self.private_key,
                                          public_key)
                 signcrypted_msg = (R, C, s)
                 self.send({'action': 'send_message', 'group': self.group_name, 'reciever': username,
